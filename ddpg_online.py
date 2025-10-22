@@ -53,11 +53,11 @@ def ddpg_online(env, env_idx, policy_file, start, end,
 
 
     obs_dim = env.observation_space.shape[0]
-    act_dim = 1#benv.action_space.shape[0]
+    act_dim = env.action_space.shape[0]
 
     # Action limit for clamping: critically, assumes all dimensions share the same bound!
-    act_limit_h = env.action_space.high[0]
-    act_limit_l = env.action_space.low[0]
+    act_limit_h = env.action_space.high
+    act_limit_l = env.action_space.low
 
     # Inputs to computation graph
     x_ph, a_ph, x2_ph, r_ph, d_ph = placeholders(obs_dim, act_dim, obs_dim, None, None)
@@ -148,7 +148,7 @@ def ddpg_online(env, env_idx, policy_file, start, end,
         ep_len += 1
         
         reward_list.append(r)
-        action_list.append(a[0])
+        action_list.append(a.copy())
         energy_list.append(energy_list[-1] + dic['Energy'])
         penalty_list.append(penalty_list[-1] + dic['Penalty'])
         temp_metric_list.append(temp_metric_list[-1] + dic['Exceedance'])
@@ -214,4 +214,8 @@ def ddpg_online(env, env_idx, policy_file, start, end,
     Q_SG = np.array(obs_list)[:, 4]*(high[4] - low[4]) + low[4]
 
     
+    # Ensure correct shape for consistency
+    if action_list.ndim == 1:
+        action_list = action_list.reshape(-1, 1)
+
     return T_air, time, T_out, Q_SG, action_list, np.array(energy_list[1:]), np.array(penalty_list[1:]), np.array(temp_metric_list[1:]), lb_list, ub_list
