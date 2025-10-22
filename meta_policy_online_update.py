@@ -29,7 +29,7 @@ def main():
     temp_metric_list, lb_list, ub_list = \
     ddpg_online(env = env, env_idx = 0, policy_file = policy_file,
                 start = online_start, end = online_end,
-                gamma = 0.99, epochs = 100, pi_lr = 1e-4, q_lr = 1e-3,
+                gamma = 1.0, epochs = 1, pi_lr = 1e-3, q_lr = 1e-3,
                 hidden_sizes = (64, 64, 64, 64), activation = tf.nn.relu,
                 max_ep_len = 4320, save_freq = 5, steps_per_epoch = 4320,
                 replay_size = int(1e8), polyak = 0.995, batch_size = 100,
@@ -40,25 +40,13 @@ def main():
     #            action_list[2100:2300], energy_list[2100:2300], penalty_list[2100:2300], 
     #            lb_list[2100:2300], ub_list[2100:2300], 9999, "meta")
     
-	print(f"Energy Use in kWh: {energy_list[-1]:.2f}")
-	print(f"# of Hours out of Bounds: {penalty_list[-1]:.0f}")
-	print(f"Temperature Exceedance in degC-hr: {temp_metric_list[-1]:.2f}")
-	
-	# Handle multi-dimensional action array gracefully
-	if isinstance(action_list, np.ndarray) and action_list.ndim > 1:
-	    df_action = pd.DataFrame(action_list, columns=['SAT_sp', 'ZAT_sp'])
-	else:
-	    df_action = pd.DataFrame({'action': action_list})
-	
-	# Combine outputs
-	df = pd.DataFrame({
-	    'energy_meta': energy_list.flatten(),
-	    'penalty_meta': penalty_list,
-	    'exceedance_meta': temp_metric_list
-	})
-	df = pd.concat([df, df_action], axis=1)
-	
-	df.to_csv('results_meta.csv', index=False)
+    print("Energy Use in kWh: %d" %energy_list[-1])
+    print("# of Hours out of Bounds: %d" %penalty_list[-1])
+    print("Temperature Exceedance in degC-hr: %d" %temp_metric_list[-1])
+    
+    d = {'energy_meta': energy_list.T[0,:], 'penalty_meta': penalty_list, 'exceedance_meta': temp_metric_list}
+    df = pd.DataFrame(data = d)
+    df.to_csv('results_meta.csv', index = False)
 
 if __name__ == "__main__":
     main()
