@@ -61,12 +61,9 @@ Actor-Critics
 def mlp_actor_critic(x, a, hidden_sizes=(256,256), activation=tf.nn.relu, 
                      output_activation=tf.tanh, action_space=None):
     act_dim = a.shape.as_list()[-1]
-    act_high = tf.constant(action_space.high, dtype=tf.float32)
-    act_low = tf.constant(action_space.low, dtype=tf.float32)
-    # tanh output ∈ [-1,1] → rescale to [low, high]
+    act_limit = action_space.high[0]
     with tf.compat.v1.variable_scope('pi'):
-        raw_pi = mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
-        pi = act_low + (raw_pi + 1.0) * 0.5 * (act_high - act_low)
+        pi = act_limit * mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
     with tf.compat.v1.variable_scope('q'):
         q = tf.squeeze(mlp(tf.concat([x,a], axis=-1), list(hidden_sizes)+[1], activation, None), axis=1)
     with tf.compat.v1.variable_scope('q', reuse=True):
@@ -79,12 +76,10 @@ Actor-Meta-policy (for continuous action only)
 def mlp_gaussian_policy(x, a, hidden_sizes, activation, output_activation, action_space):
 
     act_dim = a.shape.as_list()[-1]
-    act_high = tf.constant(action_space.high, dtype=tf.float32)
-    act_low = tf.constant(action_space.low, dtype=tf.float32)
+    act_limit = action_space.high[0]
     
     #mu = mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
-    raw_mu = mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
-    mu = act_low + (raw_mu + 1.0) * 0.5 * (act_high - act_low)
+    mu = act_limit *mlp(x, list(hidden_sizes)+[act_dim], activation, output_activation)
     log_std = tf.compat.v1.get_variable(name='log_std', initializer=-0.5*np.ones(act_dim, dtype=np.float32))
     std = tf.exp(log_std)
     pi = mu #+ tf.random_normal(tf.shape(mu)) * std
