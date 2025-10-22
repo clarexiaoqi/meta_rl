@@ -50,11 +50,11 @@ def ddpg(env, env_idx,
 
 
     obs_dim = env.observation_space.shape[0]
-    act_dim = env.action_space.shape[0]
+    act_dim = 1#benv.action_space.shape[0]
 
     # Action limit for clamping: critically, assumes all dimensions share the same bound!
-    act_limit_h = env.action_space.high
-    act_limit_l = env.action_space.low
+    act_limit_h = env.action_space.high[0]
+    act_limit_l = env.action_space.low[0]
 
     # Inputs to computation graph
     x_ph, a_ph, x2_ph, r_ph, d_ph = placeholders(obs_dim, act_dim, obs_dim, None, None)
@@ -174,4 +174,3 @@ def ddpg(env, env_idx,
                 print("Model saved in path: %s" % (save_path))
     
     sess.close()
-
