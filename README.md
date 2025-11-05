@@ -9,3 +9,8 @@ continuous_building_environment.py: Includes the updated PI loop and supervisory
 test_pi_heating.py: A simple test script to run the new environment and make sure the PI loop is behaving correctly.
 
 No other files are needed — these two are all you need to run the test.
+
+
+V2 updates:
+1. Time scales btw PI loop and 3R2C thermal model have matched.
+2. COPh has applied.
