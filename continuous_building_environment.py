@@ -41,7 +41,8 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         self.R_er = R_er
         self.a_sol_env = 0.90303
 
-        # --- State-space matrices ---
+
+        # --- State-space matrices (continuous) ---
         A = np.zeros((2, 2))
         B = np.zeros((2, 5))
         A[0, 0] = (-1. / self.C_env) * (1. / self.R_er + 1. / self.R_oe)
@@ -54,10 +55,13 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         B[1, 2] = (1. - self.a_sol_env) / self.C_air
         B[1, 3] = 1. / self.C_air
         B[1, 4] = 1. / self.C_air
-
-        sys = signal.StateSpace(A, B, np.array([[1, 0]]), np.zeros(5))
-        disc = sys.to_discrete(dt=self.dt)
-        self.A, self.B = disc.A, disc.B
+        
+        # Store: Continuous Version
+        self.Ac, self.Bc = A, B
+                     
+        # Discretize once for the outer timestep (dt)
+        disc_dt = signal.StateSpace(self.Ac, self.Bc, np.array([[1, 0]]), np.zeros(5)).to_discrete(dt=self.dt)
+        self.A, self.B = disc_dt.A, disc_dt.B
 
         # --- Comfort bounds ---
         self.beta = -0.05
@@ -149,41 +153,58 @@ class ContinuousBuildingControlEnvironment(gym.Env):
                (T_out ** 2) * EFc[3] + (Tlvc ** 2) * EFc[4] + T_out * Tlvc * EFc[5]
 
         # --- Inner PI loop with anti-windup ---
-        n_loops = int(self.dt / self.pi_interval)
+        n_loops = int(self.dt // self.pi_interval)
+        if n_loops < 1:
+            n_loops = 1
+        
+        # Re-discretize the continuous model for the PI interval
+        disc_pi = signal.StateSpace(self.Ac, self.Bc, np.array([[1, 0]]), np.zeros(5)).to_discrete(dt=self.pi_interval)
+        A_pi, B_pi = disc_pi.A, disc_pi.B
+        
+        # Initialize current state
+        x_room = s_t[:2].copy()   # [T_env, T_zone]
+        T_zone = float(x_room[1])
         total_energy = 0.0
-        damper_raw = 0.0
-
+        
         for _ in range(n_loops):
+            # --- PI control signal ---
             error = ZAT_sp - T_zone
-            damper_signal = self.Kp * error + self.Ki * self.integral_error
-            #damper_signal = np.clip(damper_raw, 0.0, 100.0)
-
-            # Anti-windup: only integrate if not saturated in same direction
-            saturated_hi = (damper_signal >= 99.9) and (error > 0)
-            saturated_lo = (damper_signal <= 0.1) and (error < 0)
-            if not (saturated_hi or saturated_lo):
-                self.integral_error += error * self.pi_interval
-                self.integral_error = np.clip(self.integral_error, -1000, 1000)
-
-            damper_raw = self.Kp * error + self.Ki * self.integral_error
-            damper_signal = np.clip(damper_raw, 0.0, 100.0)
-
-            # Fan airflow
-            self.m_fan = self.m_dot_min + (damper_signal / 100.0) * (self.m_dot_max - self.m_dot_min)
-            m_fan = self.m_fan
-
-            # Thermal dynamics
+            u_int = self.Kp * error + self.Ki * self.integral_error
+        
+            # Anti-windup: stop integrating when saturated in same direction
+            sat_hi = (u_int >= 99.9) and (error > 0)
+            sat_lo = (u_int <= 0.1) and (error < 0)
+            if not (sat_hi or sat_lo):
+                self.integral_error = np.clip(self.integral_error + error * self.pi_interval, -1000, 1000)
+        
+            damper = np.clip(self.Kp * error + self.Ki * self.integral_error, 0.0, 100.0)
+        
+            # --- Airflow ---
+            m_fan = self.m_dot_min + (damper / 100.0) * (self.m_dot_max - self.m_dot_min)
+            self.m_fan = m_fan
+        
+            # --- Zone heating power (W) ---
             u_t = m_fan * self.cp_air * (SAT_sp - T_zone)
-            s_next_room = self.A @ s_t[:2] + self.B @ np.append(s_t[2:6], u_t)
-            T_zone = s_next_room[-1]
-
-            # Fan energy
+        
+            # --- Advance 3R2C model by one PI interval ---
+            x_room = A_pi @ x_room + B_pi @ np.append(s_t[2:6], u_t)
+            T_zone = float(x_room[1])  # updated zone temperature
+        
+            # --- Fan power (W) ---
             f_flow = m_fan / self.m_design
-            f_pl = (self.c_FAN[0] + self.c_FAN[1] * f_flow +
-                    self.c_FAN[2] * f_flow ** 2 + self.c_FAN[3] * f_flow ** 3 + self.c_FAN[4] * f_flow ** 4)
+            f_pl = (self.c_FAN[0] + self.c_FAN[1]*f_flow + self.c_FAN[2]*f_flow**2
+                    + self.c_FAN[3]*f_flow**3 + self.c_FAN[4]*f_flow**4)
             Q_fan = f_pl * self.m_design * self.dP / (self.e_tot * self.rho_air)
-            total_energy += (abs(u_t) / 1000.0 + Q_fan / 1000.0) * (self.pi_interval / self.dt)
-
+        
+            # --- Electrical heating power (W) ---
+            P_heat_elec = max(u_t, 0.0) / COPh
+        
+            # --- Accumulate energy (kWh) ---
+            total_energy += ((P_heat_elec + Q_fan) / 1000.0) * (self.pi_interval / 3600.0)
+        
+        # --- Output updated state ---
+        s_next_room = x_room
+        
         # --- External states ---
         s_ext = np.array([T_cor, T_out, Qsg, Qint, Hour])
 
@@ -238,3 +259,4 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         self.state = (np.array([T_env_0, T_air_0, T_cor, T_out, Qsg, Qint, Hour])
                       - self.low) / (self.high - self.low)
         return np.array(self.state)
+
