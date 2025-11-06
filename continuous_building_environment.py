@@ -100,8 +100,8 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         )
 
         # --- PI control & supervisory settings ---
-        self.Kp = 0.25
-        self.Ki = 0.1
+        self.Kp = 15
+        self.Ki = 0.01
         self.integral_error = 0.0
         self.prev_ZAT_sp = None
         self.pi_interval = 60  # seconds
@@ -176,11 +176,12 @@ class ContinuousBuildingControlEnvironment(gym.Env):
             sat_lo = (u_int <= 0.1) and (error < 0)
             if not (sat_hi or sat_lo):
                 self.integral_error = np.clip(self.integral_error + error * self.pi_interval, -1000, 1000)
-        
-            damper = np.clip(self.Kp * error + self.Ki * self.integral_error, 0.0, 100.0)
+
+            damper_raw = self.Kp * error + self.Ki * self.integral_error
+            damper_signal = np.clip(damper_raw, 0.0, 100.0)
         
             # --- Airflow ---
-            m_fan = self.m_dot_min + (damper / 100.0) * (self.m_dot_max - self.m_dot_min)
+            m_fan = self.m_dot_min + (damper_signal / 100.0) * (self.m_dot_max - self.m_dot_min)
             self.m_fan = m_fan
         
             # --- Zone heating power (W) ---
