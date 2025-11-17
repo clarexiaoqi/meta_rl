@@ -1,5 +1,10 @@
 # DNZ060 Cooling Model Update (PI-Control Environment)
 
+## Updated Files:
+1. continuous_building_environment.py
+2. test_pi_cooling.py
+No other files are needed — these two are all you need to run the test.
+
 ## Objective:
 This repository contains updates to the HVAC cooling environment used for our Reinforcement Learning (RL)–based building control project. Currently, we are validating and stabilizing the PI-controlled cooling loop, and this update focuses on improving the cooling COP model using real RTU performance curves.
 
