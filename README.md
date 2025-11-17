@@ -1,6 +1,38 @@
-# Meta-Learning Based Controller for Thermal Management
+# DNZ060 Cooling Model Update (PI-Control Environment)
 
 ## Objective:
-This demo focuses on developing an autonomous controller for individual office occupant. It uses meta-RL to obtain the optimal control policy for a single office room in a building conditioned by VAV system. The action of the agent controls the heating and cooling input of the HVAC sytem to the office. Based on a learned control policy, the control action is determined according to the current environment states including the building temperatures, internal heat gain and solar heat gain. The control policy is optimized by the learning algorithm towards maximizing returns in terms of energy performance and comfort control.
+This repository contains updates to the HVAC cooling environment used for our Reinforcement Learning (RL)–based building control project. Currently, we are validating and stabilizing the PI-controlled cooling loop, and this update focuses on improving the cooling COP model using real RTU performance curves.
 
-Detailed description is here: https://uofnebraska-my.sharepoint.com/:f:/g/personal/81973916_nebraska_edu/Ekz5l_tdAD5GqCXL0HO-8awB8ew56lqCUiYN2_B7xWiCsw?e=nh7cgy
+1. Added York Affinity DNZ060 Performance Curves
+
+We integrated the manufacturer cooling performance curves for the York Affinity DNZ060 rooftop unit:
+	•	CAPFT – Cooling capacity modifier vs temperature
+	•	EIRFT – Energy input ratio modifier vs temperature
+	•	CAPFFF – Capacity modifier vs flow fraction
+	•	EIRFFF – Energy input ratio modifier vs flow fraction
+
+  COP_c = (COP_rated * CAPFT * CAPFFF) / (EIRFT * EIRFFF)
+
+  The curves depend on:
+	•	Outdoor dry-bulb temperature
+	•	Supply air temperature
+	•	Fan flow fraction (m_fan / m_design)
+
+2. Capacity Scaling (1/3)
+
+The DNZ060 RTU is sized to serve three thermal zones, but our simulation environment models only one zone. Therefore, we scale the coil capacity by: capacity_scale = 1/3
+
+3. Current Control Mode (Fixed ZAT & SAT)
+
+At this stage, RL actions are not active yet.
+
+We are still validating the physics of the PI control loop.
+	•	ZAT_sp is fixed at 24°C (occupied) / 28°C (unoccupied)
+	•	SAT_sp is fixed (constant supply air temperature; no reset strategy)
+	•	Only the PI damper control is operating
+	•	This allows us to verify:
+	•	Correct COP behavior
+	•	Proper PI response
+	•	Realistic energy and airflow values
+
+Later, the RL agent will control ZAT_sp and SAT_sp.
