@@ -6,7 +6,7 @@
 No other files are needed — these two are all you need to run the test.
 
 ## Objective:
-This repository contains updates to the HVAC cooling environment used for our Reinforcement Learning (RL)–based building control project. Currently, we are validating and stabilizing the PI-controlled cooling loop, and this update focuses on improving the cooling COP model using real RTU performance curves.
+This repository contains updates to the HVAC cooling environment used for our RL–based building control. Currently, we are validating and stabilizing the PI-controlled cooling loop, and this update focuses on improving the cooling COP model using real RTU performance curves.
 
 1. Added York Affinity DNZ060 Performance Curves
 
