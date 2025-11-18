@@ -5,9 +5,9 @@ The environment originally modeled a single-zone building using a simplified dir
 In **v4**, the environment introduces:
 
 1.**A supervisory control layer for SAT and ZAT setpoints**
-2. **A realistic inner PI control loop**
-3. **A correct two-timescale thermal model using discretization**
-4. **Updated York DNZ060 cooling performance curves**
+2.**A realistic inner PI control loop**
+3.**A correct two-timescale thermal model using discretization**
+4.**Updated York DNZ060 cooling performance curves**
 
 Below is a clear comparison of **OG meta_rl vs v4**.
 
