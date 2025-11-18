@@ -1,7 +1,7 @@
 # Task1 Updated Environment
 
-This repository contains updates of the RL environment `ContinuousBuildingControlEnvironment`.
-The environment originally modeled a single-zone building using a simplified direct-actuation approach.  
+This repository contains updates of the RL environment `ContinuousBuildingControlEnvironment`. The environment originally modeled a single-zone building using a simplified direct-actuation approach.  
+
 In **v4**, the environment introduces:
 
 1.**A supervisory control layer for SAT and ZAT setpoints**
