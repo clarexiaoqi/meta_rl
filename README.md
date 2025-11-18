@@ -11,7 +11,7 @@ In **v4**, the environment introduces:
 
 Below is a clear comparison of **OG meta_rl vs v4**.
 
-| Component | OG Code | v4 Code | Impact |
+| Component | OG meta_rl Code | v4 Code | Impact |
 |----------|---------|---------|--------|
 | **HVAC actuation** | Direct heating/cooling power (`a_t` → W) | Damper → airflow → HVAC load | More realistic actuator physics |
 | **Setpoints (SAT/ZAT)** | Not in control loop | SAT_sp, ZAT_sp implemented in supervisory layer (Fixed yet) | Ready for RL control in next version |
