@@ -1,6 +1,7 @@
-# Meta-Learning Based Controller for Thermal Management
+# RL Environment Updates
 
-## Objective:
-This demo focuses on developing an autonomous controller for individual office occupant. It uses meta-RL to obtain the optimal control policy for a single office room in a building conditioned by VAV system. The action of the agent controls the heating and cooling input of the HVAC sytem to the office. Based on a learned control policy, the control action is determined according to the current environment states including the building temperatures, internal heat gain and solar heat gain. The control policy is optimized by the learning algorithm towards maximizing returns in terms of energy performance and comfort control.
+continuous_building_environment.py is derived from the original meta_rl/main/continuous_building_environment.py.
+	•	Supervisory control: updates Supply Air Temperature (SAT) and Zone Air Temperature (ZAT) setpoints
+	•	PI loop: tracks setpoints through airflow modulation, cooling coil, heating coil, and reheat dynamics
 
-Detailed description is here: https://uofnebraska-my.sharepoint.com/:f:/g/personal/81973916_nebraska_edu/Ekz5l_tdAD5GqCXL0HO-8awB8ew56lqCUiYN2_B7xWiCsw?e=nh7cgy
+test_pi.py is used for PI-loop validation and supervisory control testing.
