@@ -6,312 +6,425 @@ import pandas as pd
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
-DATA_PATH = './data/'
 
-# Environment
+DATA_PATH = "./data/"
+
+
 class ContinuousBuildingControlEnvironment(gym.Env):
-    r"""
-    Description:
-        The environment includes the indoor thermal environment and the
-        outdoor weather conditions. It can be described as
-            s_{t+1} = f(s_t, a_t),
-    Observation:
-        Type: continuous space
-        
-        :T_env:     Envelope temperature, in C.
-        :T_air:     Room air temperature, in C.
-        :T_cor:     Corridor temperature, constant 22C.
-        :T_out:     Outdoor air temperature, in C from data.
-        :Qsg:       Solar gain to the room, in W from data.
-        :Qint:      Internal heat gain to the room, in W from data.
-        :Hour:      Time of the day, 0-23 hr, for setpoint scheduling
-        Num Observation             Min         Max
-        0   T_env                   10           35
-        1   T_air                   18           27
-        2   T_cor                   21           23
-        3   T_out                  -40           40
-        4   Q_SG                     0           1100
-        5   Q_int                   50           180
-        6   Hour                     0           23
-    Actions:
-        Type: Continouse space.box()
-        Range -2kW - 2kW
-        :a_t:       is the action of setting HVAC thermal input, in W.
-        
-        Num Actionz: 1
-    Reward:
-        Reward is the sum of (-1*electricity consumption) and occupants' utility for every time step,
-        including termimnation step. The electricity consumption is in kWh.
-        r_t = -1*abs(a_t/COP) + U,
-        where U = beta*(T_air - T_ref)**2,
-              COP(T_out) is the efficiency of the heating/cooling system.
-    Starting State:
-        T_env = 22. degC
-        T_air = 22. degC
-        T_cor = 22. degC
-        t = start, is the starting time step
-        T_out, Q_int, Q_SG are the values from data at the starting time step
-    Episode Termination:
-        When the end of the data is reached.
-    Parameters:
-        
-        :param dt:      Transition time-step in sec
-        :param data:    Weather data input in pandas format
-        :param start:   Starting time of an episode as in the hour of year
-        :param end:     Ending time of an episode as in the hour of year
-        :param state:   Current environment states 
-                        [T_env, T_air, T_cor, T_out, Qsg, Qint]
-        :param t:       Current time, as in the hour of year, 0-8760
-                        
-        Parameters related to zone thermal properties:
-        The parameters under this category will be inherited from the model universe class in the Meta-RL problem
-        
-        :param C_env:   Thermal capacitance of the zone envelope state, W/C
-        :param C_air:   Thermal capacitance of the zone air state, W/C
-        :param R_rc:    Thermal resistance between zone air and corridor, J/W
-        :param R_oe:    Thermal resistance between outdoor and zone envelope, J/W
-        :param R_er:    Thermal resistance between zone envelope and zone air state, J/W
-        :param a_sol_env:  Fraction of solar heat gain on the zone envelope
-        
-        Parameters related to zone occupant (utility function parameter):
-        The parameters under this category will be inherited from the model universe class in the Meta-RL problem
-            
-        :param beta:    Sensitivity to the distance between T_air and T_ref
-        :param T_ref:   The preferred zone air temperature by occupant, degC
-        Parameters related to building HVAC equipment:
-        
-        :param Tlv_heating:     Leaving water temperature of the heat pump in heating condition. degC constant.
-        :param E_cf_heating:    Coefficients of the COP function of the heat pump in heating condition
-        :param Tlv_cooling:     Leaving water temperature of the heat pump in cooling condition. degC constant.
-        :param E_cf_cooling:    Coefficients of the COP function of the heat pump in cooling condition
-        :param cp_air:          Specific heat of air
-        :param m_dot_min        Minimum air flow rate to a room in kg/s.
-        :param T_sup            Supply air temperature in deg C.
-        :param m_design         Design flow rate based on 400 cfm for 1 room, kg/s.
-        :param dP = 500         Design pressure increase, in Pa.
-        :param e_tot            Fan efficiency.
-        :param rho_air          Air density, kg/m^3.
-        :param c_FAN            Fan coefficients.
-        :param Qh_max           Maximum heating capacity of reheat
-        :param m_dot_max        Maximum air flow rate to a room in kg/s
+    """
+    HVAC environment with:
+      - 3R2C thermal model
+      - Inner PI loop (pi_interval, default 300 s)
+      - Outer supervisory timestep dt (default 1800 s = 30 min)
+      - Air-based cooling AND air-based heating (mode-dependent SAT/ZAT)
+      - Terminal reheat enabled ONLY in cooling mode
+      - York DNZ060 cooling performance curves for cooling COP
+      - Comfort penalty (Utility)
     """
 
-    def __init__(self, data_file, dt = 1800, start = 0., end = 10000.,
-                 C_env = None, C_air = None, R_rc = None, R_oe = None,
-                 R_er = None, lb_set = 22., ub_set = 24.):
-        
-        
-        # Initialize the parameters
-        self.dt = dt
+    def __init__(
+        self,
+        data_file,
+        dt=1800.0,
+        start=0.0,
+        end=10000.0,
+        C_env=None,
+        C_air=None,
+        R_rc=None,
+        R_oe=None,
+        R_er=None,
+        lb_set=22.0,
+        ub_set=24.0,
+        # -------- fixed setpoints (for now) --------
+        SAT_cool=16.0,
+        ZAT_cool=20.0,
+        SAT_heat=35.0,
+        ZAT_heat=22.0,
+        mode_deadband=0,
+    ):
+        # =============================
+        # Basic configuration
+        # =============================
+        self.dt = float(dt)
         self.data = pd.read_csv(DATA_PATH + data_file)
-        self.start = start
-        self.end = end
-        self.num_step = int((self.end -self.start)/(self.dt/3600) + 1)        
+        self.start = float(start)
+        self.end = float(end)
 
-        # Thermal capacitance, W/C
-        self.C_env = C_env
-        self.C_air = C_air
-        # Thermal resistance, J/W
-        self.R_rc = R_rc
-        self.R_oe = R_oe
-        self.R_er = R_er
-        # Fraction of solar heat gain on the envelope
+        # Thermal model parameters
+        if C_env is None or C_air is None or R_rc is None or R_oe is None or R_er is None:
+            raise ValueError("C_env, C_air, R_rc, R_oe, R_er must be provided (not None).")
+        self.C_env = float(C_env)
+        self.C_air = float(C_air)
+        self.R_rc = float(R_rc)
+        self.R_oe = float(R_oe)
+        self.R_er = float(R_er)
         self.a_sol_env = 0.90303
 
-        # A and B matrices for state space
+        # =============================
+        # PI Controller settings
+        # =============================
+        self.Kp = 15.0
+        self.Ki = 0.02
+        self.integral_error = 0.0
+        self.prev_ZAT_sp = None
+        self.pi_interval = 60.0 * 5.0  # 300 s
+        self.m_fan = None
+
+        # =============================
+        # Fixed setpoints (cooling/heating)
+        # =============================
+        self.SAT_cool = float(SAT_cool)
+        self.ZAT_cool = float(ZAT_cool)
+        self.SAT_heat = float(SAT_heat)
+        self.ZAT_heat = float(ZAT_heat)
+        self.mode_deadband = float(mode_deadband)
+
+        # =============================
+        # Reheat constants
+        # =============================
+        self.Qh_reheat_max = 1500.0  # W (terminal reheat)
+        self.eta_reheat = 0.9        # for reheat + (simple) air-based heating energy accounting
+
+        # =============================
+        # 3R2C continuous model
+        # =============================
         A = np.zeros((2, 2))
         B = np.zeros((2, 5))
 
-        A[0, 0] = (-1. / self.C_env) * (1. /\
-                        self.R_er + 1./self.R_oe)
-        A[0, 1] = 1. / (self.C_env * self.R_er)
-        A[1, 0] = 1. / (self.C_air * self.R_er)
-        A[1, 1] = (-1. / self.C_air) * \
-                  (1. /self.R_er + 1. / self.R_rc)
+        A[0, 0] = (-1.0 / self.C_env) * (1.0 / self.R_er + 1.0 / self.R_oe)
+        A[0, 1] = 1.0 / (self.C_env * self.R_er)
 
-        B[0, 1] = 1./(self.C_env * self.R_oe)
+        A[1, 0] = 1.0 / (self.C_air * self.R_er)
+        A[1, 1] = (-1.0 / self.C_air) * (1.0 / self.R_er + 1.0 / self.R_rc)
+
+        B[0, 1] = 1.0 / (self.C_env * self.R_oe)
         B[0, 2] = self.a_sol_env / self.C_env
-        B[1, 0] = 1. / (self.C_air * self.R_rc)
-        B[1, 2] = (1. - self.a_sol_env) / self.C_air
-        B[1, 3] = 1. / self.C_air
-        B[1, 4] = 1. / self.C_air
-        
-        # C matrix
-        C = np.array([[1, 0]])
-        # D matrix
-        D = np.zeros(5)
-        
-        # Discretize the matrices
-        sys = signal.StateSpace(A, B, C, D)
-        discrete_matrix = sys.to_discrete(dt = self.dt)
-        self.A = discrete_matrix.A
-        self.B = discrete_matrix.B        
-        
-        # Utility parameters
-        self.beta = -0.05
-        self.T_ref = 23.
-        self.lb = lb_set
-        self.ub = ub_set
-        
-        # HVAC parameters
-        self.Tlv_cooling = 7.
-        self.Tlv_heating = 35.
-        self.E_cf_cooling =  np.array([14.8187, -0.2538, 0.1814, -0.0003, -0.0021, 0.002])
-        self.E_cf_heating =  np.array([7.8885, 0.1809, -0.1568, 0.001068, 0.0009938, -0.002674])
-        self.C_cf_cooling =  np.array([8471.4, 212.1, 782.6, -5.1, -3.7, -7.5 ])
-        self.C_cf_heating =  np.array([7.8885, 0.1809, -0.1568, 0.001068, 0.0009938, -0.002674])
-        self.m_dot_min = 0.080938984
-        self.cp_air = 1004
-        self.T_sup = 16.5
-        self.m_design = 0.9264*0.4
-        self.dP = 500
+
+        B[1, 0] = 1.0 / (self.C_air * self.R_rc)
+        B[1, 2] = (1.0 - self.a_sol_env) / self.C_air
+        B[1, 3] = 1.0 / self.C_air
+        B[1, 4] = 1.0 / self.C_air
+
+        self.Ac, self.Bc = A, B
+
+        # Outer discrete model
+        disc_dt = signal.StateSpace(
+            self.Ac, self.Bc,
+            np.array([[1.0, 0.0]]),
+            np.zeros(5)
+        ).to_discrete(dt=self.dt)
+        self.A_dt, self.B_dt = disc_dt.A, disc_dt.B
+
+        # Inner PI discrete model
+        disc_pi = signal.StateSpace(
+            self.Ac, self.Bc,
+            np.array([[1.0, 0.0]]),
+            np.zeros(5)
+        ).to_discrete(dt=self.pi_interval)
+        self.A_pi, self.B_pi = disc_pi.A, disc_pi.B
+
+        # timestep matching
+        self.n_pi_loops = int(self.dt // self.pi_interval)
+        if self.n_pi_loops < 1:
+            self.n_pi_loops = 1
+        self.dt_hr_pi = self.pi_interval / 3600.0
+
+        # Comfort bounds (occupied hours only)
+        self.lb = float(lb_set)
+        self.ub = float(ub_set)
+
+        # ============================================================
+        # York Affinity DNZ060 Cooling Curves (for cooling COP only)
+        # ============================================================
+        self.capft = {
+            "C1": 1.2343140,
+            "C2": -0.0398816,
+            "C3": 0.0019354,
+            "C4": 0.0062114,
+            "C5": -0.0001247,
+            "C6": -0.0003619,
+        }
+
+        self.eirft = {
+            "C1": -0.1272387,
+            "C2": 0.0848124,
+            "C3": -0.0021062,
+            "C4": -0.0085792,
+            "C5": 0.0007783,
+            "C6": -0.0005585,
+        }
+
+        self.capfff = {"C1": 1.2527302, "C2": -0.7182445, "C3": 0.4623738}
+        self.eirfff = {"C1": 0.6529892, "C2": 0.8193151, "C3": -0.4617716}
+        self.COP_rated = 4.24
+
+        # =============================
+        # HVAC constants
+        # =============================
+        self.cp_air = 1004.0
+        self.m_dot_min = 0.080939
+        self.m_design = 0.9264 * 0.4
+        self.m_dot_max = self.m_dot_min * 550.0 / 140.0
+
+        self.dP = 500.0
         self.e_tot = 0.6045
         self.rho_air = 1.225
-        self.c_FAN = np.array([0.040759894, 0.08804497, -0.07292612, 0.943739823, 0])
-        self.Qh_max = 1500
-        self.m_dot_max = self.m_dot_min*550/140
-        self.seed()
-        
-        # Define the action space in OpenAI gym format
-        self.action_space = spaces.Box(low = np.array([0.]), high = np.array([1.]), dtype=np.float32)
-        # Lower bound of the observation space
-        self.low = np.array([10.0, 15.0, 21.0, -40.0, 0., 50., 0.])
-        # Upper bound of the observation space
-        self.high = np.array([35.0, 28.0, 23.0, 40.0, 1100., 180., 23.])
-        # Define the state space in OpenAI gym format
-        self.observation_space = spaces.Box(low = np.zeros((7)), high = np.ones((7)), dtype=np.float32)
-        
-        # Initialize state and time
+        self.c_FAN = np.array([0.04076, 0.08804, -0.07293, 0.94374, 0.0])
+
+        # scale to represent multi-zone aggregate (your existing choice)
+        self.capacity_scale = 1.0 / 3.0
+
+        # =============================
+        # Action/State Spaces
+        # =============================
+        # Keeping the original Box, but in this fixed-setpoint version we ignore a_t.
+        self.action_space = spaces.Box(
+            low=np.array([10.0, 15.0]),
+            high=np.array([40.0, 30.0]),
+            dtype=np.float32,
+        )
+
+        # State = [T_env, T_zone, T_cor, T_out, Qsg, Qint, Hour]
+        self.low = np.array([10., 15., 20., -40., 0., 50., 0.])
+        self.high = np.array([35., 28., 28., 40., 1100., 180., 23.])
+
+        self.observation_space = spaces.Box(
+            low=np.zeros(7),
+            high=np.ones(7),
+            dtype=np.float32,
+        )
+
         self.state = None
         self.t = None
-        
-    def seed(self, seed = None):
-        """
-        Setting the seed of the Environment
-        """
-        
+
+        self.seed()
+
+    # --------------------------------------------------------------
+    def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
-        
-        return [seed]    
-    
+        return [seed]
 
-    # The evolution of system states
-    def step(self, a_t):
-
-        r"""
-        Outputs:
-        Update self.state to be the next-time-step environmental states after the action taken.
-        r is the reward for the agent based on energy consumption and temperature control.
-        done is the indicator whether the end of epoch has been reached
+    # --------------------------------------------------------------
+    def _select_mode_and_setpoints(self, T_zone):
         """
-        
+        Supervisory mode selection (discrete):
+          - heating if below heating setpoint - deadband
+          - cooling if above cooling setpoint + deadband
+          - neutral otherwise (default to cooling setpoints)
+        """
+        if T_zone < self.ZAT_heat - self.mode_deadband:
+            return "heating", self.SAT_heat, self.ZAT_heat
+        if T_zone > self.ZAT_cool + self.mode_deadband:
+            return "cooling", self.SAT_cool, self.ZAT_cool
+        return "neutral", self.SAT_cool, self.ZAT_cool
+
+    # ============================================================
+    def step(self, a_t):
+        # -----------------------------
+        # Denormalize state
+        # -----------------------------
         s_t = self.state * (self.high - self.low) + self.low
-        
-        # Coefficient of performance of HVAC system
-        T_out = s_t[3]  
-                        
-        EFh = self.E_cf_heating
-        Tlvh = self.Tlv_heating
+        T_zone = float(s_t[1])
 
-        EFc = self.E_cf_cooling
-        Tlvc = self.Tlv_cooling
-        
-        COPh = 0.9#EFh[0] + T_out*EFh[1] + Tlvh*EFh[2] + (T_out**2)*EFh[3] + (Tlvh**2)*EFh[4] + T_out*Tlvh*EFh[5]
-        COPc = EFc[0] + T_out*EFc[1] + Tlvh*EFc[2] + (T_out**2)*EFc[3] + (Tlvc**2)*EFc[4] + T_out*Tlvc*EFc[5]
-        
-        
-        # Rescale the action
-        if a_t == 0.5:
-            u_t = self.m_dot_min*self.cp_air*(self.T_sup - s_t[1])
-            u_c = u_t
-            u_h = 0
-            m_fan = self.m_dot_min
-            energy = -1*u_t/COPc/1000/2
-        elif a_t > 0.5:
-            u_t = ((a_t - 0.5)/0.5)*self.Qh_max + self.m_dot_min*self.cp_air*(self.T_sup - s_t[1])
-            u_c = self.m_dot_min*self.cp_air*(self.T_sup - s_t[1])
-            u_h = ((a_t - 0.5)/0.5)*self.Qh_max
-            m_fan = self.m_dot_min
-            energy = (((a_t - 0.5)/0.5)*self.Qh_max/COPh + self.m_dot_min*self.cp_air*(s_t[1] - self.T_sup)/COPc)/1000/2             
-        else:
-            m_fan = (self.m_dot_max - self.m_dot_min)*((0.5 - a_t)/0.5)+self.m_dot_min
-            u_t = m_fan*self.cp_air*(self.T_sup - s_t[1])
-            u_c = u_t
-            u_h = 0
-            energy = -1*u_t/COPc/1000/2
-        
-        # Get states T_env, T_air
-        s_next_room = self.A@s_t[:2] + self.B@np.append(s_t[2:6], u_t)
-            
-        # Fan power
-        f_flow = m_fan/self.m_design
-        f_pl = self.c_FAN[0]+self.c_FAN[1]*f_flow+self.c_FAN[2]*f_flow**2+self.c_FAN[3]*f_flow**3+self.c_FAN[4]*f_flow**4
-        Q_fan = f_pl*self.m_design*self.dP/(self.e_tot*self.rho_air)
-        energy += Q_fan/1000/2
-        
-        # Time t
-        #t = s_t[-1] + 0.5
-        self.t = self.t + 0.5
-        # Exogenous states T_out, T_cor, Qsg, Qint, Hour.
-        T_cor = 22.
-        T_out = self.data.iloc[int(self.t*2)].Tout
-        Qsg = self.data.iloc[int(self.t*2)].Qsg
-        Qint = self.data.iloc[int(self.t*2)].Qint
-        Hour = self.data.iloc[int(self.t*2)].Hour
-        s_ext = np.array([T_cor, T_out, Qsg, Qint, Hour])
-        
-        
-        # Utility function
-        #Utility = self.beta*(s_next_room[-1] - self.T_ref)**2.
-        if Hour >= 7 and Hour <= 20:
-            lb = self.lb
-            ub = self.ub
-        
-            if s_next_room[-1] < lb:
-                Utility = -5.
-                Temp_exceed = (lb - s_next_room[-1]) * 0.5
-            elif s_next_room[-1] > ub:
-                Utility = -5.
-                Temp_exceed = (s_next_room[-1] - ub) * 0.5
+        # Outer time advance (hours)
+        self.t += self.dt / 3600.0
+
+        # Exogenous inputs
+        row = self.data.iloc[int(self.t * 2)]
+        T_out, Qsg, Qint, Hour = row.Tout, row.Qsg, row.Qint, row.Hour
+        T_cor = 24.0
+
+        # Supervisory mode selection (once per outer step)
+        mode, SAT_sp, ZAT_sp = self._select_mode_and_setpoints(T_zone)
+
+        # Reset PI integrator on setpoint change
+        if self.prev_ZAT_sp is None or ZAT_sp != self.prev_ZAT_sp:
+            self.integral_error = 0.0
+        self.prev_ZAT_sp = ZAT_sp
+
+        x_room = s_t[:2].copy()
+        n_loops = self.n_pi_loops
+
+        total_energy = 0.0
+        cool_energy_total = 0.0
+        heat_energy_total = 0.0
+        reheat_energy_total = 0.0
+        fan_energy_total = 0.0
+
+        damper_signal = 0.0
+        COPc = self.COP_rated
+
+        u_base = np.array([T_cor, T_out, Qsg, Qint])
+
+        # ============================================================
+        # Inner PI loop
+        # ============================================================
+        for _ in range(n_loops):
+            # ---------------------------------
+            # Airflow from PI damper
+            # ---------------------------------
+            m_fan = self.m_dot_min + (damper_signal / 100.0) * (self.m_dot_max - self.m_dot_min)
+            self.m_fan = m_fan
+
+            # --- Effective airflow percentage (for plotting only) ---
+            self.damper_eff = 100.0 * (m_fan / self.m_design)
+
+            # ---------------------------------
+            # PI control (zone temperature -> damper)
+            # ---------------------------------
+            error = T_zone - ZAT_sp
+            raw = self.Kp * error + self.Ki * self.integral_error
+            damper_signal = float(np.clip(raw, 0.0, 100.0))
+
+            # anti-windup
+            if not ((raw >= 99.9 and error > 0) or (raw <= 0.1 and error < 0)):
+                self.integral_error += error * self.pi_interval
+
+            # ---------------------------------
+            # Air-based HVAC heat transfer (works for both cooling/heating)
+            # Q_air < 0 => cooling, Q_air > 0 => heating
+            # ---------------------------------
+            Q_air = self.capacity_scale * (m_fan * self.cp_air * (SAT_sp - T_zone))
+
+            # --------------------------------------------------
+            # Terminal reheat ONLY at minimum airflow
+            # --------------------------------------------------
+            at_min_flow = damper_signal <= 1.0
+
+            if (
+                    mode in ["cooling", "neutral"]
+                    and T_zone < ZAT_sp
+                    and at_min_flow
+            ):
+                reheat_signal = np.clip((ZAT_sp - T_zone), 0.0, 1.0)
+                Q_reheat = reheat_signal * self.Qh_reheat_max
             else:
-                Utility = 0.
-                Temp_exceed = 0.
-                
-        else:
-            lb = 15.
-            ub = 28.
-                
-            Utility = 0.
-            Temp_exceed = 0.
+                Q_reheat = 0.0
 
-        
-        # Reward based on energy consumption and temperature control.
-        #energy = -np.sqrt(a_t**2.)/COP/1000./2.
-        r = -1*energy + Utility
-        
-        # Assemble the states
-        self.state = (np.concatenate([s_next_room, s_ext]) - self.low)/(self.high - self.low)
-        
-        # Check if end of training period has been reached.
-        done = bool((self.t + 0.5) > self.end)
-        if done == True:
-            logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
-        
-        return np.array(self.state), r, done, {'u_t': u_t, 'a_t': a_t, 'Energy': energy, 'Penalty': Utility/(-10), 'Exceedance': Temp_exceed, 'lb': lb, 'ub': ub}
+            # ---------------------------------
+            # Single thermal update
+            # ---------------------------------
+            u_total = Q_air + Q_reheat
+            u_model = np.array([u_base[0], u_base[1], u_base[2], u_base[3], u_total])
 
+            x_room = self.A_pi @ x_room + self.B_pi @ u_model
+            T_zone = float(x_room[1])
 
-    # Reset the environment to its initial condition
+            # ========================================================
+            # ENERGY CALCULATIONS
+            # ========================================================
+            f_flow = max(0.05, m_fan / self.m_design)
+
+            capfff = self.capfff["C1"] + self.capfff["C2"] * f_flow + self.capfff["C3"] * f_flow ** 2
+            eirfff = self.eirfff["C1"] + self.eirfff["C2"] * f_flow + self.eirfff["C3"] * f_flow ** 2
+
+            capft = (
+                self.capft["C1"]
+                + self.capft["C2"] * T_out
+                + self.capft["C3"] * T_out ** 2
+                + self.capft["C4"] * SAT_sp
+                + self.capft["C5"] * SAT_sp ** 2
+                + self.capft["C6"] * T_out * SAT_sp
+            )
+
+            eirft = (
+                self.eirft["C1"]
+                + self.eirft["C2"] * T_out
+                + self.eirft["C3"] * T_out ** 2
+                + self.eirft["C4"] * SAT_sp
+                + self.eirft["C5"] * SAT_sp ** 2
+                + self.eirft["C6"] * T_out * SAT_sp
+            )
+
+            COPc = max(0.1, (self.COP_rated * capft * capfff) / (eirft * eirfff))
+
+            f_pl = (
+                self.c_FAN[0]
+                + self.c_FAN[1] * f_flow
+                + self.c_FAN[2] * f_flow ** 2
+                + self.c_FAN[3] * f_flow ** 3
+            )
+            Q_fan = f_pl * self.m_design * self.dP / (self.e_tot * self.rho_air)
+
+            # Cooling compressor power (only when Q_air is cooling)
+            P_cool = max(-Q_air, 0.0) / COPc
+
+            # Heating via hot supply air (simple efficiency model)
+            P_heat = max(Q_air, 0.0) / self.eta_reheat
+
+            # Terminal reheat power
+            P_reheat = Q_reheat / self.eta_reheat
+
+            cool_step = (P_cool / 1000.0) * self.dt_hr_pi
+            heat_step = (P_heat / 1000.0) * self.dt_hr_pi
+            reheat_step = (P_reheat / 1000.0) * self.dt_hr_pi
+            fan_step = (Q_fan / 1000.0) * self.dt_hr_pi
+
+            total_energy += cool_step + heat_step + reheat_step + fan_step
+            cool_energy_total += cool_step
+            heat_energy_total += heat_step
+            reheat_energy_total += reheat_step
+            fan_energy_total += fan_step
+
+        # ============================================================
+        # Comfort penalty
+        # ============================================================
+        T_now = x_room[1]
+        Utility = 0.0
+        Temp_exceed = 0.0
+
+        if 7 <= Hour <= 20:
+            if T_now < self.lb:
+                Utility = -5.0
+                Temp_exceed = self.lb - T_now
+            elif T_now > self.ub:
+                Utility = -5.0
+                Temp_exceed = T_now - self.ub
+
+        reward = -total_energy + Utility
+
+        # next state
+        s_ext = np.array([T_cor, T_out, Qsg, Qint, Hour])
+        self.state = (np.concatenate([x_room, s_ext]) - self.low) / (self.high - self.low)
+
+        done = self.t >= self.end
+
+        info = {
+            "Mode": mode,
+            "SAT_sp": SAT_sp,
+            "ZAT_sp": ZAT_sp,
+            "m_fan": self.m_fan,
+            "COPc": COPc,
+            "DamperSignal": damper_signal,
+            "DamperEff": self.damper_eff,
+            "TotalEnergy": total_energy,
+            "CoolingEnergy": cool_energy_total,
+            "HeatingEnergy": heat_energy_total,
+            "ReheatEnergy": reheat_energy_total,
+            "FanEnergy": fan_energy_total,
+            "Hour": Hour,
+            "Utility": Utility,
+            "TempExceed": Temp_exceed,
+        }
+
+        return np.array(self.state), reward, done, info
+
+    # ============================================================
     def reset(self):
-        
-        # Initial condition of the environment at start time.
         self.t = self.start
-        T_env_0 = 22.
-        T_air_0 = 22.
-        T_cor = 22.
-        T_out = self.data.iloc[int(self.t*2)].Tout
-        Qsg = self.data.iloc[int(self.t*2)].Qsg
-        Qint = self.data.iloc[int(self.t*2)].Qint
-        Hour = self.data.iloc[int(self.t*2)].Hour
-        self.state = (np.array([T_env_0, T_air_0, T_cor, T_out, Qsg, Qint, Hour]) - self.low)/(self.high - self.low)
-        
+        self.integral_error = 0.0
+        self.prev_ZAT_sp = None
+        self.m_fan = self.m_dot_min
+
+        T_env_0 = 20.0
+        T_zone_0 = 24.0
+        T_cor = 24.0
+
+        row = self.data.iloc[int(self.start * 2)]
+        T_out, Qsg, Qint, Hour = row.Tout, row.Qsg, row.Qint, row.Hour
+
+        self.state = (
+            np.array([T_env_0, T_zone_0, T_cor, T_out, Qsg, Qint, Hour]) - self.low
+        ) / (self.high - self.low)
+
         return np.array(self.state)
