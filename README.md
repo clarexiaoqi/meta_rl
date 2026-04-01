@@ -1,6 +1,6 @@
-# PPO-Based HVAC Control for a Simplified Building CPS Environment
+# Basic PPO-Based HVAC Control for a Simplified Building CPS Environment
 
-This repository contains a custom Gym environment and a PPO training pipeline for continuous HVAC control in a simplified building cyber-physical system (CPS). The agent learns two continuous control actions:
+This repository contains a new environment and a PPO training pipeline for continuous HVAC control in a simplified building. The agent learns two continuous control actions:
 
 - **Supply air temperature setpoint (SAT)**
 - **Zone air temperature setpoint (ZAT)**
@@ -10,19 +10,19 @@ The objective is to reduce HVAC energy use while maintaining indoor thermal comf
 
 # Files
 
-    •	Env_develop.py
+•	Env_develop.py
 Custom OpenAI Gym environment: ContinuousBuildingControlEnvironment
-	•	train_ppo_cps.py
+•	train_ppo_cps.py
 PPO training script implemented in PyTorch
-	•	plot_ppo_results_cps.py
+•	plot_ppo_results_cps.py
 Plotting script for training results and final episode behavior
-	•	episode_rewards.csv
+•	episode_rewards.csv
 Episode-level reward and objective summaries generated after training
-	•	last_episode_log.csv
+•	last_episode_log.csv
 Timestep-level log of the final rollout generated after training
-	•	data/
+•	data/
 Input weather/internal gains data CSV used by the environment
-	•	ppo_runs_cps/
+•	ppo_runs_cps/
 Saved PPO checkpoints
 
 #Environment
