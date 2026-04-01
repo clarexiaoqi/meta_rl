@@ -27,17 +27,17 @@ Saved PPO checkpoints
 
 # Environment
 
-Class
+• Class
 
 ContinuousBuildingControlEnvironment(gym.Env)
 
-Action Space
+• Action Space
 
 Continuous 2D Box:
 	•	SAT_sp ∈ [10.0, 15.5] °C
 	•	ZAT_sp ∈ [18.0, 26.0] °C
 
-Observation Space
+• Observation Space
 
 Normalized 7-dimensional state:
 	1.	T_env
@@ -50,7 +50,7 @@ Normalized 7-dimensional state:
 
 The environment internally normalizes the state to [0, 1].
 
-Reward
+• Reward
 
 Raw reward at each step:
 
@@ -61,7 +61,7 @@ where:
 	•	TempExceed_degC = linear comfort violation outside the comfort band
 	•	comfort is only penalized during occupied hours (7:00 to 20:00)
 
-Time Resolution
+• Time Resolution
 	•	Main RL timestep: 30 minutes
 	•	Internal PI control timestep: 5 minutes
 
@@ -100,7 +100,6 @@ Run: train_ppo_cps.py
 Run: plot_ppo_results_cps.py
 
 # Notes
-•	The current scripts use an absolute local Windows path for BASE_DIR.
-You may want to change this before publishing the repository.
+•	The current scripts use an absolute local Windows path for BASE_DIR. You may want to change this before running.
 
 
