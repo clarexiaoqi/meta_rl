@@ -54,7 +54,7 @@ The environment internally normalizes the state to [0, 1].
 
 Raw reward at each step:
 
-r_t = - \left( \text{TotalEnergy}_{kWh} + \alpha \cdot \text{TempExceed}_{^\circ C} \right)
+r_t = - (TotalEnergy_kWh + alpha * TempExceed_degC)
 
 where:
 	•	TotalEnergy_kWh = cooling + heating + reheat + fan energy
