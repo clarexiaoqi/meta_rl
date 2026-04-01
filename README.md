@@ -108,3 +108,20 @@ Make sure the repository contains:
 ├── Env_develop.py
 ├── train_ppo_cps.py
 └── plot_ppo_results_cps.py
+```
+
+### 2. Train PPO
+
+```bash
+python train_ppo_cps.py
+```
+
+### 3. Get the result plot after training
+
+```bash
+python plot_ppo_results_cps.py
+```
+
+## Note
+
+The current scripts use an absolute local Windows path for BASE_DIR. You may want to change this before running.
