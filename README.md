@@ -97,10 +97,10 @@ Main Hyperparameters
 
 ├── plot_ppo_results_cps.py
 
-3. Train PPO
+2. Train PPO
 Run: train_ppo_cps.py
 
-4. Get the result plot after training
+3. Get the result plot after training
 Run: plot_ppo_results_cps.py
 
 # Notes
