@@ -25,7 +25,7 @@ Input weather/internal gains data CSV used by the environment
 •	ppo_runs_cps/
 Saved PPO checkpoints
 
-#Environment
+# Environment
 
 Class
 
@@ -66,7 +66,7 @@ Time Resolution
 	•	Internal PI control timestep: 5 minutes
 
 
-#PPO Training
+# PPO Training
 
 The training script uses a custom PPO implementation in PyTorch with:
 	•	tanh-squashed Gaussian policy
@@ -86,7 +86,7 @@ Main Hyperparameters
 	•	ENT_COEF = 0.01
 	•	LR = 3e-4
 
-#How to Run
+# How to Run
 1. Prepare data:
 ├── data/
 ├── Env_develop.py
@@ -99,8 +99,8 @@ Run: train_ppo_cps.py
 3. Get the result plot after training
 Run: plot_ppo_results_cps.py
 
-#Notes
-	•	The current scripts use an absolute local Windows path for BASE_DIR.
+# Notes
+•	The current scripts use an absolute local Windows path for BASE_DIR.
 You may want to change this before publishing the repository.
 
 
