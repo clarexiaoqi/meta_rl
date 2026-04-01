@@ -89,14 +89,17 @@ Main Hyperparameters
 # How to Run
 1. Prepare data:
 ├── data/
+
 ├── Env_develop.py
+
 ├── train_ppo_cps.py
+
 ├── plot_ppo_results_cps.py
 
-2. Train PPO
+3. Train PPO
 Run: train_ppo_cps.py
 
-3. Get the result plot after training
+4. Get the result plot after training
 Run: plot_ppo_results_cps.py
 
 # Notes
