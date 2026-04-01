@@ -1,4 +1,4 @@
-# Basic PPO-Based HVAC Control for a Simplified Building CPS Environment
+# Basic PPO-Based Control for a Simplified Building CPS Environment
 
 This repository contains a new environment and a PPO training pipeline for continuous HVAC control in a simplified building. The agent learns two continuous control actions:
 
