@@ -8,8 +8,9 @@ This repository contains a custom Gym environment and a PPO training pipeline fo
 The objective is to reduce HVAC energy use while maintaining indoor thermal comfort.
 
 
-#Files
-	•	Env_develop.py
+# Files
+
+    •	Env_develop.py
 Custom OpenAI Gym environment: ContinuousBuildingControlEnvironment
 	•	train_ppo_cps.py
 PPO training script implemented in PyTorch
