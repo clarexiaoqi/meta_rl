@@ -57,12 +57,16 @@ Raw reward at each step:
 r_t = - (TotalEnergy_kWh + alpha * TempExceed_degC)
 
 where:
+
 TotalEnergy_kWh = cooling + heating + reheat + fan energy
+
 TempExceed_degC = linear comfort violation outside the comfort band. Comfort is only penalized during occupied hours (7:00 to 20:00)
 
 • Time Resolution
-	•	Main RL timestep: 30 minutes
-	•	Internal PI control timestep: 5 minutes
+
+Main RL timestep: 30 minutes
+
+Internal PI control timestep: 5 minutes
 
 
 # PPO Training
