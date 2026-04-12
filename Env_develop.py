@@ -25,6 +25,11 @@ class ContinuousBuildingControlEnvironment(gym.Env):
           reward = -( TotalEnergy_kWh + alpha * TempExceed_degC )
         TempExceed is linear exceed outside [lb_set, ub_set] during 7~20.
       - damper_signal carries over across outer steps (smoother PI behavior)
+
+    Updated:
+      - Added cyclic time features to state: hour_sin, hour_cos
+      - Reduced default reheat magnitude
+      - Kept Hour in info for easier logging/diagnostics
     """
 
     def __init__(
@@ -189,13 +194,13 @@ class ContinuousBuildingControlEnvironment(gym.Env):
             dtype=np.float32,
         )
 
-        # State = [T_env, T_zone, T_cor, T_out, Qsg, Qint, Hour]
-        self.low = np.array([10., 15., 20., -40., 0., 50., 0.], dtype=np.float32)
-        self.high = np.array([35., 28., 28., 40., 1100., 180., 23.], dtype=np.float32)
+        # State = [T_env, T_zone, T_cor, T_out, Qsg, Qint, hour_sin, hour_cos]
+        self.low = np.array([10., 15., 20., -40., 0., 50., -1., -1.], dtype=np.float32)
+        self.high = np.array([35., 28., 28., 40., 1100., 180., 1., 1.], dtype=np.float32)
 
         self.observation_space = spaces.Box(
-            low=np.zeros(7, dtype=np.float32),
-            high=np.ones(7, dtype=np.float32),
+            low=np.zeros(8, dtype=np.float32),
+            high=np.ones(8, dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -207,6 +212,10 @@ class ContinuousBuildingControlEnvironment(gym.Env):
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def _hour_to_cyclic(self, hour):
+        hour_rad = 2.0 * np.pi * (float(hour) % 24.0) / 24.0
+        return np.sin(hour_rad), np.cos(hour_rad)
 
     def _apply_action_setpoints(self, a_t):
         a_t = np.asarray(a_t, dtype=np.float32).reshape(-1)
@@ -234,6 +243,9 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         row = self.data.iloc[idx]
         T_out, Qsg, Qint, Hour = float(row.Tout), float(row.Qsg), float(row.Qint), float(row.Hour)
         T_cor = 24.0
+
+        # cyclic time features
+        hour_sin, hour_cos = self._hour_to_cyclic(Hour)
 
         # actions -> setpoints
         SAT_sp, ZAT_sp = self._apply_action_setpoints(a_t)
@@ -369,7 +381,7 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         reward = -(total_energy + self.alpha * Temp_exceed)
 
         # next normalized state
-        s_ext = np.array([T_cor, T_out, Qsg, Qint, Hour], dtype=np.float32)
+        s_ext = np.array([T_cor, T_out, Qsg, Qint, hour_sin, hour_cos], dtype=np.float32)
         self.state = (np.concatenate([x_room, s_ext]) - self.low) / (self.high - self.low)
 
         done = self.t >= self.end
@@ -393,6 +405,8 @@ class ContinuousBuildingControlEnvironment(gym.Env):
             "FanEnergy_kWh": float(fan_energy_total),
 
             "Hour": float(Hour),
+            "hour_sin": float(hour_sin),
+            "hour_cos": float(hour_cos),
             "TempExceed_degC": float(Temp_exceed),
             "Reward": float(reward),
         }
@@ -413,9 +427,10 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         idx = min(int(self.start * 2), len(self.data) - 1)
         row = self.data.iloc[idx]
         T_out, Qsg, Qint, Hour = float(row.Tout), float(row.Qsg), float(row.Qint), float(row.Hour)
+        hour_sin, hour_cos = self._hour_to_cyclic(Hour)
 
         self.state = (
-            np.array([T_env_0, T_zone_0, T_cor, T_out, Qsg, Qint, Hour], dtype=np.float32) - self.low
+            np.array([T_env_0, T_zone_0, T_cor, T_out, Qsg, Qint, hour_sin, hour_cos], dtype=np.float32) - self.low
         ) / (self.high - self.low)
 
         return np.array(self.state, dtype=np.float32)
