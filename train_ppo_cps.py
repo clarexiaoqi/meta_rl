@@ -13,7 +13,7 @@ import torch.optim as optim
 #                         USER-TUNABLE HYPERPARAMETERS
 # =============================================================================
 
-BASE_DIR = r"C:\Users\jbak2\OneDrive - University of Nebraska\Desktop\CPS\Connect_Env_and_basic_RL\Mar_30"
+BASE_DIR = r"C:\Users\jbak2\OneDrive - University of Nebraska\Desktop\CPS\Connect_Env_and_basic_RL\Apri_14"
 ENV_PY_NAME = "Env_develop"  # Env_develop.py
 DATA_FILE = "weather_data_2013_to_2017_summer_pandas.csv"
 
@@ -52,11 +52,11 @@ START = 0.0
 END = 720.0  # 30 days = 720 hours
 
 # You MUST provide these
-C_ENV = 1.0e6
+C_ENV = 1.0e6*5 # was 1.0e6
 C_AIR = 1.0e5
 R_RC = 0.5
-R_OE = 2.0
-R_ER = 0.7
+R_OE = 2.0*0.1 # was 2.0
+R_ER = 0.7*0.1 # was 0.7
 
 LB_SET = 22.0
 UB_SET = 24.0
