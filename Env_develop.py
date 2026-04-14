@@ -71,7 +71,7 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         self.R_rc = float(R_rc)
         self.R_oe = float(R_oe)
         self.R_er = float(R_er)
-        self.a_sol_env = 0.90303
+        self.a_sol_env = 0.3 # was 0.90303
 
         # -----------------------------
         # PI Controller settings
@@ -196,7 +196,7 @@ class ContinuousBuildingControlEnvironment(gym.Env):
 
         # State = [T_env, T_zone, T_cor, T_out, Qsg, Qint, hour_sin, hour_cos]
         self.low = np.array([10., 15., 20., -40., 0., 50., -1., -1.], dtype=np.float32)
-        self.high = np.array([35., 28., 28., 40., 1100., 180., 1., 1.], dtype=np.float32)
+        self.high = np.array([45., 28., 28., 40., 1100., 180., 1., 1.], dtype=np.float32)
 
         self.observation_space = spaces.Box(
             low=np.zeros(8, dtype=np.float32),
@@ -253,8 +253,8 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         # mode (logging only)
         mode = self._select_mode(T_zone, ZAT_sp)
 
-        # reset PI integrator on setpoint change
-        if self.prev_ZAT_sp is None or ZAT_sp != self.prev_ZAT_sp:
+        # reset PI integrator on setpoint change (# Use a deadband threshold because PPO outputs a continuous action, ZAT_sp will almost never be exactly the same as the previous timestep.)
+        if self.prev_ZAT_sp is None or abs(ZAT_sp - self.prev_ZAT_sp) > 0.5:
             self.integral_error = 0.0
         self.prev_ZAT_sp = ZAT_sp
 
@@ -384,7 +384,25 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         s_ext = np.array([T_cor, T_out, Qsg, Qint, hour_sin, hour_cos], dtype=np.float32)
         self.state = (np.concatenate([x_room, s_ext]) - self.low) / (self.high - self.low)
 
+        # debug warning for T_env normalization
+        if (self.state[0] < 0.0) or (self.state[0] > 1.0):
+            print(
+                f"[WARN] T_env out of normalization range at t={self.t:.2f} hr | "
+                f"T_env_raw={x_room[0]:.3f}, T_env_norm={self.state[0]:.3f}, "
+                f"low={self.low[0]:.3f}, high={self.high[0]:.3f}"
+            )
+
         done = self.t >= self.end
+
+        # normalized values for diagnostics
+        T_env_norm = float(self.state[0])
+        T_zone_norm = float(self.state[1])
+        T_cor_norm = float(self.state[2])
+        T_out_norm = float(self.state[3])
+        Qsg_norm = float(self.state[4])
+        Qint_norm = float(self.state[5])
+        hour_sin_norm = float(self.state[6])
+        hour_cos_norm = float(self.state[7])
 
         info = {
             "Mode": mode,
@@ -409,6 +427,32 @@ class ContinuousBuildingControlEnvironment(gym.Env):
             "hour_cos": float(hour_cos),
             "TempExceed_degC": float(Temp_exceed),
             "Reward": float(reward),
+
+            # ---- raw denormalized state values ----
+            "T_env_raw": float(x_room[0]),
+            "T_zone_raw": float(x_room[1]),
+            "T_cor_raw": float(T_cor),
+            "T_out_raw": float(T_out),
+            "Qsg_raw": float(Qsg),
+            "Qint_raw": float(Qint),
+
+            # ---- normalized state values actually sent to PPO ----
+            "T_env_norm": T_env_norm,
+            "T_zone_norm": T_zone_norm,
+            "T_cor_norm": T_cor_norm,
+            "T_out_norm": T_out_norm,
+            "Qsg_norm": Qsg_norm,
+            "Qint_norm": Qint_norm,
+            "hour_sin_norm": hour_sin_norm,
+            "hour_cos_norm": hour_cos_norm,
+
+            # ---- bound check flags ----
+            "T_env_norm_out_of_range": float((T_env_norm < 0.0) or (T_env_norm > 1.0)),
+            "T_zone_norm_out_of_range": float((T_zone_norm < 0.0) or (T_zone_norm > 1.0)),
+            "T_cor_norm_out_of_range": float((T_cor_norm < 0.0) or (T_cor_norm > 1.0)),
+            "T_out_norm_out_of_range": float((T_out_norm < 0.0) or (T_out_norm > 1.0)),
+            "Qsg_norm_out_of_range": float((Qsg_norm < 0.0) or (Qsg_norm > 1.0)),
+            "Qint_norm_out_of_range": float((Qint_norm < 0.0) or (Qint_norm > 1.0)),
         }
 
         return np.array(self.state, dtype=np.float32), float(reward), bool(done), info
