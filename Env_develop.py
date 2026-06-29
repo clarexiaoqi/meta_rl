@@ -48,8 +48,8 @@ class ContinuousBuildingControlEnvironment(gym.Env):
         mode_deadband=0.0,
         alpha=0.3,
         # action bounds
-        SAT_low=10.0,
-        SAT_high=15.5,
+        SAT_low=12.8,
+        SAT_high=17.7,
         ZAT_low=18.0,
         ZAT_high=26.0,
         # updated: reheat max as tunable parameter
