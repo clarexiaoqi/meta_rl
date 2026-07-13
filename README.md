@@ -122,6 +122,10 @@ Example result
 <img src="1.png" width="900">
 </p>
 
+<p align="center">
+<img src="2.png" width="900">
+</p>
+
 ---
 
 # Performance
@@ -178,5 +182,5 @@ Future work includes
 MPC Development Branch
 
 ```
-mpc
+https://github.com/clarexiaoqi/meta_rl/edit/mpc_framework_1
 ```
