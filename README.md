@@ -131,9 +131,9 @@ Example evaluation metrics:
 
 | Metric | Value |
 |--------|------:|
-| Energy Use | **226.50 kWh** |
-| Hours Out of Bounds | **12.50 h** |
-| Temperature Exceedance | **1.01 °C·hr** |
+| Energy Use | **152.92 kWh** |
+| Hours Out of Bounds | **29.00 h** |
+| Temperature Exceedance | **1.25 °C·hr** |
 
 These results demonstrate that the proposed framework maintains thermal comfort while achieving energy-efficient HVAC control.
 
@@ -179,5 +179,5 @@ Current work mainly focuses on:
 
 # Repository
 
-https://github.com/clarexiaoqi/meta_rl/tree/Yizhong's_update_1
+https://github.com/clarexiaoqi/meta_rl/tree/Yizhong's_update_2
 
