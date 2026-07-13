@@ -1,183 +1,182 @@
-# Meta-RL for HVAC Control
+# Model Predictive Control (MPC) for HVAC Control
 
-This project studies meta-reinforcement learning (Meta-RL) for HVAC control.
+This project implements a Model Predictive Control (MPC) framework for HVAC control based on a 3R2C building thermal model.
 
-The goal is to learn a generic policy that can generalize across multiple HVAC environments with different 3R2C parameters, and then quickly adapt to a new environment.
+The controller optimizes the Supply Air Temperature (SAT) and Zone Air Temperature (ZAT) setpoints over a finite prediction horizon while balancing energy consumption and indoor thermal comfort.
 
-The framework mainly combines:
+The framework includes
 
-- PPO-based meta training
-- DDPG-based inner-loop adaptation
-- Warm-up mechanisms for stable adaptation
-- Conservative policy updates
-- Environment diversity analysis
-
----
-
-# Pipeline
-
-The workflow contains four main parts:
-
-1. PPO-based meta-policy training
-2. DDPG-based adaptation on new environments
-3. Offline policy evaluation
-4. Environment diversity experiments
+- 3R2C building thermal model
+- Multi-step state prediction
+- Receding horizon optimization
+- PI controller simulation
+- Offline performance evaluation
 
 ---
 
-# Meta-Policy Training
+# Framework
 
-The meta-policy is trained using PPO across multiple HVAC environments.
+The MPC workflow consists of four modules.
 
-Each environment has different:
-
-- thermal capacitance
-- thermal resistance
-- outdoor interaction parameters
-
-The PPO policy learns a generic control strategy that can transfer across environments.
-
-To run meta training:
-
-```bash
-python3 meta-rl.py
 ```
-
-The trained meta-policy will be saved in:
-
-```text
-model/best_actor
-model/final_actor
-model/shared_ddpg_critic
-```
-
-Main saved files include:
-
-```text
-best_actor.pth
-final_actor.pth
+Prediction Environment
+        ↓
+Prediction Model
+        ↓
+MPC Controller
+        ↓
+Offline Evaluation
 ```
 
 ---
 
-# DDPG Adaptation
+# Project Structure
 
-After obtaining a generic PPO policy, we use DDPG to adapt the policy to a specific environment.
-
-The adaptation framework includes:
-
-- shared Q initialization
-- warm-up training for Q learning
-- conservative policy updates
-- best-model selection
-
-To run adaptation:
-
-```bash
-python3 ddpg_update.py
+```
+Env_develop_mpc_draft.py
+        ↓
+mpc_model.py
+        ↓
+mpc_controller.py
+        ↓
+mpc_test.py
 ```
 
-The adapted models will be saved in:
+---
 
-```text
-ddpg/ddpg_adapted
+# Environment
+
+```
+Env_develop_mpc_draft.py
 ```
 
-The saved checkpoint may include:
+This module provides
 
-```text
-best_actor
-final_actor
-last_best_actor
-last_min_exceed_actor
+- HVAC simulation environment
+- 3R2C thermal dynamics
+- PI controller
+- reward computation
+- state transition
+- weather data interface
+
+---
+
+# Prediction Model
+
 ```
+mpc_model.py
+```
+
+This module implements
+
+- multi-step prediction
+- state rollout
+- objective evaluation
+- energy computation
+- comfort penalty
+
+The prediction model is used by the optimizer to evaluate candidate control sequences.
+
+---
+
+# MPC Controller
+
+```
+mpc_controller.py
+```
+
+This module implements
+
+- receding horizon MPC
+- constrained optimization
+- SLSQP solver
+- warm-start optimization
+- SAT and ZAT optimization
+
+At every control step, the controller solves an optimization problem and applies only the first control action.
 
 ---
 
 # Offline Evaluation
 
-To evaluate the trained policy:
+Run
 
 ```bash
-python3 offline_test.py
+python mpc_test.py
 ```
 
-The offline evaluation reports:
+The evaluation generates
 
-- indoor temperature regulation
-- HVAC energy consumption
-- temperature exceedance
-- adaptation performance
+- indoor temperature profile
+- SAT trajectory
+- ZAT trajectory
+- outdoor temperature
+- solar heat gain
+- energy consumption
+- comfort violations
+- optimization statistics
 
-The script also generates visualization figures for qualitative analysis.
-
-## Example Evaluation Results
-
-### Indoor Temperature and Control Performance
-
-<p align="center">
-  <img src="1.png" width="800">
-</p>
-
-The indoor temperature remains within the desired comfort bounds during both daytime and nighttime. The learned SAT and ZAT setpoints change smoothly according to the occupancy schedule, while the outdoor temperature and solar heat gain follow realistic daily patterns.
-
-### Quantitative Evaluation
+Example result
 
 <p align="center">
-  <img src="2.png" width="600">
+<img src="1.png" width="900">
 </p>
 
-Example evaluation metrics:
+---
+
+# Performance
+
+Typical evaluation metrics
 
 | Metric | Value |
 |--------|------:|
-| Energy Use | **152.92 kWh** |
-| Hours Out of Bounds | **29.00 h** |
-| Temperature Exceedance | **1.25 °C·hr** |
+| Total Return | -2.2940 |
+| Energy Consumption | 137.63 kWh |
+| Violation Hours | 2.50 h |
+| Temperature Exceedance | 0.00284 °C·hr |
+| Solver Success Rate | 100% |
+| Average Solver Time | 0.038 s |
 
-These results demonstrate that the proposed framework maintains thermal comfort while achieving energy-efficient HVAC control.
-
-# Environment Diversity Experiments
-
-We also study the relationship between:
-
-- PPO training performance
-- environment diversity
-- convergence speed
-
-To run diversity experiments:
-
-```bash
-python diversity.py
-```
+These results demonstrate that the MPC controller successfully maintains indoor comfort while achieving energy-efficient HVAC control.
 
 ---
 
 # Main Files
 
-```text
-meta-rl.py          PPO meta training
-ddpg_update.py      DDPG adaptation
-ddpg_torch.py       DDPG implementation
-offline_test.py     Offline evaluation
-diversity.py        Diversity experiments
-Env_develop.py      HVAC environment
+```
+Env_develop_mpc_draft.py
+
+mpc_model.py
+
+mpc_controller.py
+
+mpc_test.py
 ```
 
 ---
 
-# Current Research Focus
+# Current Status
 
-Current work mainly focuses on:
+The current implementation supports
 
-- improving adaptation stability
-- reducing unstable DDPG updates
-- studying environment diversity
-- improving meta-policy quality
+- exact 3R2C building model
+- finite-horizon optimization
+- online receding horizon control
+- offline performance evaluation
+
+Future work includes
+
+- system parameter identification
+- weather prediction
+- robustness evaluation
+- comparison with learning-based controllers
 
 ---
 
 # Repository
 
-https://github.com/clarexiaoqi/meta_rl/tree/Yizhong's_update_2
+MPC Development Branch
 
+```
+mpc
+```
