@@ -122,7 +122,7 @@ The identified thermal parameters gradually converge toward the true building pa
 
 # Running the Code
 
-## Oracle MPC
+## Primary MPC
 
 ```bash
 python mpc_test.py
