@@ -1,0 +1,45 @@
+{
+  "environment_module": "Env_develop_mpc_draft",
+  "environment_class": "ContinuousBuildingControlEnvironment",
+  "weather_data_file": "weather_data_2013_to_2017_summer_pandas.csv",
+  "random_seed": 42,
+  "start_time_hour": 17664.0,
+  "end_time_hour": 17832.0,
+  "dt_seconds": 1800.0,
+  "number_of_rows": 336,
+  "true_parameters": {
+    "C_env": 3199600.0,
+    "C_air": 351870.0,
+    "R_rc": 0.00706,
+    "R_oe": 0.02707,
+    "R_er": 0.00369
+  },
+  "action_ranges": {
+    "SAT_min": 12.8,
+    "SAT_max": 17.7,
+    "ZAT_min": 18.0,
+    "ZAT_max": 26.0,
+    "hold_steps_min": 2,
+    "hold_steps_max": 6
+  },
+  "dataset_ranges": {
+    "T_env_start_min": 20.0,
+    "T_env_start_max": 25.56056022644043,
+    "T_zone_start_min": 20.39724349975586,
+    "T_zone_start_max": 25.42917823791504,
+    "SAT_sp_min": 12.800000190734863,
+    "SAT_sp_max": 17.700000762939453,
+    "ZAT_sp_min": 18.0,
+    "ZAT_sp_max": 26.0,
+    "Qsg_used_min": 0.0,
+    "Qsg_used_max": 739.3866602,
+    "Qint_used_min": 50.0,
+    "Qint_used_max": 180.0
+  },
+  "consistency_metrics": {
+    "max_T_env_continuity_error": 1.8608527909691475e-06,
+    "max_T_zone_continuity_error": 1.7276438235569458e-06,
+    "max_time_continuity_error": 0.0
+  },
+  "identification_note": "The identification model must reconstruct the six internal PI loops and the exact 300-second state-space discretization. Final m_fan and Q_reheat values are diagnostics only."
+}

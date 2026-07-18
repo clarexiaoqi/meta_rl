@@ -1,0 +1,2 @@
+method,start_hour,end_hour,duration_hours,horizon_steps,horizon_hours,total_steps,total_return,energy_kwh,violation_hours,temp_exceedance_degC_hr,solver_success_rate,solver_fallback_rate,avg_solver_time_sec,max_solver_time_sec,avg_solver_iterations,avg_solver_function_evaluations
+Oracle MPC,17664.0,19872.5,2208.5,6,3.0,4417,-2.2940481575427176,137.63012294118707,2.5,0.0028370025280182176,1.0,0.0,0.03808600561266565,0.3037084999959916,4.411365179986416,68.00656554222323

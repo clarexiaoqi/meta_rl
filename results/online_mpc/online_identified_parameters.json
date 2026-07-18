@@ -1,0 +1,42 @@
+{
+  "generic_parameters": {
+    "C_env": 3621417.0,
+    "C_air": 395335.4,
+    "R_rc": 0.007260759,
+    "R_oe": 0.03000755,
+    "R_er": 0.004009136
+  },
+  "identified_parameters": {
+    "C_env": 3199602.7983013764,
+    "C_air": 351870.06476050126,
+    "R_rc": 0.007059998911400862,
+    "R_oe": 0.02706996024292636,
+    "R_er": 0.003689998198957633
+  },
+  "true_parameters_for_post_experiment_evaluation_only": {
+    "C_env": 3199600.0,
+    "C_air": 351870.0,
+    "R_rc": 0.00706,
+    "R_oe": 0.02707,
+    "R_er": 0.00369
+  },
+  "identified_relative_error_percent": {
+    "C_env": 8.74578502438548e-05,
+    "C_air": 1.8404666855276997e-05,
+    "R_rc": 1.5419251245271193e-05,
+    "R_oe": 0.00014686765290054918,
+    "R_er": 4.8808736241940044e-05
+  },
+  "parameter_switch_time_hour": 17688.0,
+  "identification_steps": 48,
+  "identification_hours": 24.0,
+  "weather_forecast_model": {
+    "temperature_error_distribution": "Gaussian",
+    "temperature_std_degC": 0.8,
+    "solar_relative_error_distribution": "Gaussian",
+    "solar_relative_std": 0.2,
+    "adjacent_error_correlation": 0.8,
+    "random_seed": 35,
+    "forecast_mean_source": "ground-truth future weather trajectory"
+  }
+}

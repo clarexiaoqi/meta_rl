@@ -1,0 +1,2 @@
+one_step_envelope_rmse,one_step_zone_rmse,one_step_combined_rmse,rollout_envelope_rmse,rollout_zone_rmse,rollout_combined_rmse,temperature_rmse_tolerance,controller_tolerance,maximum_controller_error,temperature_check_passed,controller_check_passed,full_check_passed
+3.450070514169907e-11,3.14951771597489e-11,3.303214222237508e-11,1.7899184957111344e-06,8.889109651858082e-07,1.4131473605601746e-06,0.0001,1e-06,8.989036359707825e-08,True,True,True

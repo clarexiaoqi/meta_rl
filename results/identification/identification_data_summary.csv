@@ -1,0 +1,2 @@
+data_file,start_hour,end_hour,requested_collection_days,collected_steps,collected_hours,dt_seconds,use_excitation,base_SAT,base_ZAT,SAT_excitation,ZAT_excitation,total_return,total_energy_kWh,violation_hours,temp_exceedance_degC_hr,final_T_env_degC,final_T_zone_degC,seed
+weather_data_2013_to_2017_summer_pandas.csv,17664.0,17832.0,7.0,336,168.0,1800.0,True,14.5,23.0,0.5,0.5,-0.35673250159774456,21.232981553294074,1.0,0.037993009460134175,23.136011123657227,22.915699005126953,42
