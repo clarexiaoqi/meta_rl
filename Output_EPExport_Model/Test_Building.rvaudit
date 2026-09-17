@@ -1,0 +1,16 @@
+ ReadVarsESO
+ processing:./Test_Building.rvi
+ input file:Test_Building.eso
+ output file:Test_Building.csv
+ getting all vars from:Test_Building.eso
+  number variables requested for output=          67
+ ReadVars Run Time=00hr 00min  0.03sec
+ ReadVarsESO program completed successfully.
+ ReadVarsESO
+ processing:./Test_Building.mvi
+ input file:Test_Building.mtr
+ output file:Test_BuildingMeter.csv
+ getting all vars from:Test_Building.mtr
+  number variables requested for output=           1
+ ReadVars Run Time=00hr 00min  0.02sec
+ ReadVarsESO program completed successfully.
