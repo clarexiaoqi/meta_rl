@@ -81,7 +81,6 @@ EnergyPlus FMU
 Python
 ```
 
-If FMU variable names are changed in the IDF, also update the names used in `model.set()` and `model.get()`.
-
+Current run period: **1 day (July 3rd)**  
 Current timestep: **15 minutes (900 s)**  
 EnergyPlus version: **22.2**
